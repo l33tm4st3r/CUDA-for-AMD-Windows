@@ -19,9 +19,14 @@ function Find-HipRoot {
     if ($env:HIP_PATH -and (Test-Path $env:HIP_PATH)) { return (Resolve-Path $env:HIP_PATH).Path }
 
     $base = Join-Path $env:ProgramFiles 'AMD\ROCm'
-    if (Test-Path $base) {
-        $dirs = Get-ChildItem $base -Directory -ErrorAction SilentlyContinue | Sort-Object {
-            try { [version]$_.Name } catch { [version]'0.0' }
+    $roots = @()
+    if (Test-Path 'C:\ROCm') { $roots += 'C:\ROCm' }
+    if (Test-Path $base) { $roots += $base }
+    foreach ($root in $roots) {
+        $dirs = Get-ChildItem $root -Directory -ErrorAction SilentlyContinue | Sort-Object {
+            $match = [regex]::Match($_.Name, '^\d+(?:\.\d+){0,3}')
+            if ($match.Success) { try { [version]$match.Value } catch { [version]'0.0' } }
+            else { [version]'0.0' }
         } -Descending
         foreach ($dir in $dirs) {
             if (Test-Path (Join-Path $dir.FullName 'bin\hipInfo.exe')) { return $dir.FullName }
@@ -47,6 +52,7 @@ function Get-ArchMetadata {
 }
 
 $resolvedHip = Find-HipRoot $HipRoot
+$hipVersion = if ($resolvedHip) { Split-Path $resolvedHip -Leaf } else { $null }
 $hipInfoPath = if ($resolvedHip) { Join-Path $resolvedHip 'bin\hipInfo.exe' } else { $null }
 $hipDevices = @()
 
@@ -85,7 +91,7 @@ if ($hipDevices.Count -gt 0) {
     foreach ($d in $hipDevices) {
         $meta = Get-ArchMetadata $d.gfx
         $wmi = $wmiDevices | Where-Object { $_.name -eq $d.name } | Select-Object -First 1
-        $isReference = ($d.gfx -eq 'gfx1201')
+        $isReference = ($d.gfx -eq 'gfx1201' -and $d.name -eq 'AMD Radeon AI PRO R9700' -and $hipVersion -match '^7\.14')
         $devices += [pscustomobject][ordered]@{
             index = $d.index
             name = $d.name
@@ -104,7 +110,7 @@ if ($hipDevices.Count -gt 0) {
     foreach ($wmi in $wmiDevices) {
         $arch = Get-FallbackArch $wmi.name
         $meta = Get-ArchMetadata $arch
-        $isReference = ($arch -eq 'gfx1201')
+        $isReference = ($arch -eq 'gfx1201' -and $wmi.name -eq 'AMD Radeon AI PRO R9700' -and $hipVersion -match '^7\.14')
         $devices += [pscustomobject][ordered]@{
             index = $i++
             name = $wmi.name
@@ -130,9 +136,6 @@ if ($GpuIndex -ge 0) {
     if (-not $selected) { $selected = $devices | Where-Object { $_.project_tested } | Select-Object -First 1 }
     if (-not $selected -and $devices.Count -gt 0) { $selected = $devices[0] }
 }
-
-$hipVersion = $null
-if ($resolvedHip) { $hipVersion = Split-Path $resolvedHip -Leaf }
 
 $report = [pscustomobject][ordered]@{
     schema = 1
