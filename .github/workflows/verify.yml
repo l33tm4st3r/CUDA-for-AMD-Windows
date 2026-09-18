@@ -38,7 +38,7 @@ jobs:
         run: |
           $json = & ./scripts/gpu-scan.ps1 -AsJson
           $report = $json | ConvertFrom-Json
-          if ($report.schema -ne 1) { throw 'Unexpected scanner schema' }
+          if ($report.schema -ne 2) { throw 'Unexpected scanner schema' }
           Write-Host "Scanner schema $($report.schema) OK"
 
       - name: Verify pinned ZLUDA release asset
