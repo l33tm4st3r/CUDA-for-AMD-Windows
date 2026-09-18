@@ -138,7 +138,7 @@ if ($GpuIndex -ge 0) {
 }
 
 $report = [pscustomobject][ordered]@{
-    schema = 1
+    schema = 2
     generated_utc = [DateTime]::UtcNow.ToString('o')
     windows = [Environment]::OSVersion.VersionString
     hip_root = $resolvedHip
